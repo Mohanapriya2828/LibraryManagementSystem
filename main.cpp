@@ -253,7 +253,60 @@ void bulkImportBooks() {
     cout << "Bulk import complete. Success: " << success << ", Failed: " << fail << "\n";
 }
 
+void addMember() {
+    if (currentUserRole != "Admin") {
+    cout << "Access denied. Only admin can perform this action.\n";
+    return;
+}
 
+    string name, email, phone, address, membership, status = "Active";
+    cout << "Name: "; getline(cin, name);
+    cout << "Email: "; getline(cin, email);
+    if (exists("SELECT * FROM members WHERE email='" + email + "'")) {
+        cout << "Email already exists.\n"; return;
+    }
+    cout << "Phone: "; getline(cin, phone);
+    cout << "Address: "; getline(cin, address);
+    cout << "Membership Type (Regular/Premium): "; getline(cin, membership);
+    string sql = "INSERT INTO members (name, email, phone, address, membershiptype, joindate, status) "
+                 "VALUES ('" + name + "','" + email + "','" + phone + "','" + address + "','" + membership + "',GETDATE(),'" + status + "')";
+    cout << (execSQL(sql) ? "Member added.\n" : "Failed to add member.\n");
+}
+
+void updateMember() {
+    if (currentUserRole != "Admin") {
+    cout << "Access denied. Only admin can perform this action.\n";
+    return;
+}
+
+    string email;
+    cout << "Enter email of member to update: "; getline(cin, email);
+    if (!exists("SELECT * FROM members WHERE email='" + email + "'")) {
+        cout << "Member not found.\n"; return;
+    }
+
+    string phone, address;
+    cout << "New phone: "; getline(cin, phone);
+    cout << "New address: "; getline(cin, address);
+
+    string sql = "UPDATE members SET phone='" + phone + "', address='" + address + "' WHERE email='" + email + "'";
+    cout << (execSQL(sql) ? "Member updated.\n" : "Failed to update.\n");
+}
+
+void deleteMember() {
+    if (currentUserRole != "Admin") {
+    cout << "Access denied. Only admin can perform this action.\n";
+    return;
+}
+
+    string email;
+    cout << "Enter email of member to delete: "; getline(cin, email);
+    if (!exists("SELECT * FROM members WHERE email='" + email + "'")) {
+        cout << "Member not found.\n"; return;
+    }
+    string sql = "UPDATE members SET status='Inactive' WHERE email='" + email + "'";
+    cout << (execSQL(sql) ? "Member deactivated.\n" : "Failed to deactivate.\n");
+}
 
 void bookMenu() {
     string choice;
@@ -278,6 +331,30 @@ void bookMenu() {
         else cout << "Invalid option.\n";
     } while (true);
 }
+
+void memberMenu() {
+    string choice;
+    do {
+        cout << "\n--- Members Menu ---\n";
+        cout << "1. View Members\n2. Search Members\n";
+
+        if (currentUserRole == "Admin") {
+            cout << "3. Add Member\n4. Update Member\n5. Delete Member\n";
+        }
+
+        cout << "0. Back\n> ";
+        getline(cin, choice);
+
+        if (choice == "1") viewMembers();
+        else if (choice == "2" ) searchMembers();
+        else if (choice == "3" && currentUserRole == "Admin") addMember();
+        else if (choice == "4" && currentUserRole == "Admin") updateMember();
+        else if (choice == "5" && currentUserRole == "Admin") deleteMember();
+        else if (choice == "0") break;
+        else cout << "Invalid option.\n";
+    } while (true);
+}
+
 void mainMenu() {
     string choice;
     do {
