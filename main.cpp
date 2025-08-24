@@ -345,6 +345,88 @@ void searchMembers() {
     }
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
+void issueBook() {
+    int memberId, bookId;
+    cout << "Enter Member ID: ";
+    cin >> memberId;
+    cout << "Enter Book ID: ";
+    cin >> bookId;
+    cin.ignore();
+
+    string checkBookSQL = "SELECT availability FROM books WHERE bookid = " + to_string(bookId);
+    SQLHSTMT stmt;
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    SQLExecDirect(stmt, (SQLCHAR*)checkBookSQL.c_str(), SQL_NTS);
+    
+    int available = 0;
+    if (SQLFetch(stmt) == SQL_SUCCESS)
+        SQLGetData(stmt, 1, SQL_C_LONG, &available, 0, NULL);
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+
+    if (!available) {
+        cout << "Book is not available.\n";
+        return;
+    }
+
+    string checkLimitSQL = "SELECT COUNT(*) FROM transactions WHERE memberid = " + to_string(memberId) + " AND returndate IS NULL";
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    SQLExecDirect(stmt, (SQLCHAR*)checkLimitSQL.c_str(), SQL_NTS);
+
+    int count = 0;
+    if (SQLFetch(stmt) == SQL_SUCCESS)
+        SQLGetData(stmt, 1, SQL_C_LONG, &count, 0, NULL);
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+
+    if (count >= 5) {
+        cout << "Member has reached max limit (5 books).\n";
+        return;
+    }
+
+    string sql = "INSERT INTO transactions (memberid, bookid, issuedate, duedate) VALUES (" +
+                 to_string(memberId) + "," + to_string(bookId) + ", GETDATE(), DATEADD(day, 14, GETDATE()))";
+    if (execSQL(sql)) {
+        execSQL("UPDATE books SET availability = 0 WHERE bookid = " + to_string(bookId));
+        cout << "Book issued successfully.\n";
+    } else {
+        cout << "Failed to issue book.\n";
+    }
+}
+
+void returnBook() {
+    int bookId;
+    cout << "Enter Book ID to return: ";
+    cin >> bookId;
+    cin.ignore();
+
+    string sql = "SELECT transactionid, DATEDIFF(day, duedate, GETDATE()) AS late_days "
+                 "FROM transactions WHERE bookid = " + to_string(bookId) + " AND returndate IS NULL";
+
+    SQLHSTMT stmt;
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql.c_str(), SQL_NTS) != SQL_SUCCESS) {
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        cout << "Error retrieving transaction.\n";
+        return;
+    }
+
+    int txId = 0, lateDays = 0;
+    if (SQLFetch(stmt) == SQL_SUCCESS) {
+        SQLGetData(stmt, 1, SQL_C_SLONG, &txId, 0, NULL);
+        SQLGetData(stmt, 2, SQL_C_SLONG, &lateDays, 0, NULL);
+    } else {
+        cout << "No active transaction found.\n";
+        SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        return;
+    }
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+
+    double fine = lateDays > 0 ? lateDays * 5.0 : 0.0;
+    string updateSQL = "UPDATE transactions SET returndate = GETDATE(), fineamount = " + to_string(fine) +
+                       " WHERE transactionid = " + to_string(txId);
+    execSQL(updateSQL);
+    execSQL("UPDATE books SET availability = 1 WHERE bookid = " + to_string(bookId));
+    cout << "Book returned. Fine: ₹" << fine << "\n";
+}
 
 void bookMenu() {
     string choice;
@@ -390,6 +472,41 @@ void memberMenu() {
         else if (choice == "5" && currentUserRole == "Admin") deleteMember();
         else if (choice == "0") break;
         else cout << "Invalid option.\n";
+    } while (true);
+}
+void transactionMenu() {
+    string choice;
+    do {
+        cout << "\n--- Transactions Menu ---\n";
+
+        if (currentUserRole == "Admin") {
+            cout << "1. Issue Book\n";
+            cout << "2. Return Book\n";
+            cout << "3. Reserve Book\n";
+            cout << "4. Transaction History\n";
+        } else {
+            cout << "1. Return Book\n";
+            cout << "2. Reserve Book\n";
+            cout << "3. Transaction History\n";
+        }
+
+        cout << "0. Back\n> ";
+        getline(cin, choice);
+
+        if (currentUserRole == "Admin") {
+            if (choice == "1") issueBook();
+            else if (choice == "2") returnBook();
+            else if (choice == "3") reserveBook();
+            else if (choice == "4") transactionHistory();
+            else if (choice == "0") break;
+            else cout << "Invalid option.\n";
+        } else { 
+            if (choice == "1") returnBook();
+            else if (choice == "2") reserveBook();
+            else if (choice == "3") transactionHistory();
+            else if (choice == "0") break;
+            else cout << "Invalid option.\n";
+        }
     } while (true);
 }
 
