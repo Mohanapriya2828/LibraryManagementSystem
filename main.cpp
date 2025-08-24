@@ -81,6 +81,50 @@ bool login() {
     }
 }
 
+void bookMenu() {
+    string choice;
+    do {
+        cout << "\n--- Books Menu ---\n";
+        cout << "1. View\n2. Search\n3. Bulk Import\n";
+
+        if (currentUserRole == "Admin") {
+            cout << "4. Add Book\n5. Update Book\n6. Delete Book\n";
+        }
+
+        cout << "0. Back\n> ";
+        getline(cin, choice);
+
+        if (choice == "1") viewBooks();
+        else if (choice == "2") searchBooks();
+        else if (choice == "3" && currentUserRole == "Admin") bulkImportBooks();
+        else if (choice == "4" && currentUserRole == "Admin") addBook();
+        else if (choice == "5" && currentUserRole == "Admin") updateBook();
+        else if (choice == "6" && currentUserRole == "Admin") deleteBook();
+        else if (choice == "0") break;
+        else cout << "Invalid option.\n";
+    } while (true);
+}
+void mainMenu() {
+    string choice;
+    do {
+        cout << "\n========== Library Management ==========\n"
+             << "1. Books Management\n"
+             << "2. Members Management\n"
+             << "3. Transactions\n"
+             << "4. Reports and analytics\n"
+             << "5. Exit\n> ";
+        getline(cin, choice);
+        if (choice == "1") bookMenu();
+        else if (choice == "2") memberMenu();
+        else if (choice == "3") transactionMenu();
+        else if (choice == "4") reportsMenu();
+        else if (choice == "5") break;
+        else cout << "Invalid option.\n";
+    } while (true);
+}
+
+
+
 int main() {
     SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &env);
     SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
