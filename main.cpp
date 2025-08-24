@@ -428,6 +428,63 @@ void returnBook() {
     cout << "Book returned. Fine: ₹" << fine << "\n";
 }
 
+void reserveBook() {
+    int bookId, memberId;
+    cout << "Enter Book ID to reserve: ";
+    cin >> bookId;
+    cout << "Enter Member ID: ";
+    cin >> memberId;
+    cin.ignore();
+
+    string check = "SELECT * FROM books WHERE bookid = " + to_string(bookId) + " AND availability = 0";
+    if (!exists(check)) {
+        cout << "Book is available, no need to reserve.\n";
+        return;
+    }
+
+    string sql = "INSERT INTO transactions (memberid, bookid) VALUES (" + to_string(memberId) + ", " + to_string(bookId) + ")";
+    if (execSQL(sql))
+        cout << "Book reserved successfully.\n";
+    else
+        cout << "Failed to reserve.\n";
+}
+
+void transactionHistory() {
+    string filter;
+    cout << "Search by:\n1. Member ID\n2. Book ID\n> ";
+    getline(cin, filter);
+
+    string input;
+    cout << "Enter ID: ";
+    getline(cin, input);
+
+    string sql = string("SELECT transactionid, memberid, bookid, issuedate, duedate, returndate, fineamount ")
+           + "FROM transactions WHERE " + (filter == "1" ? "memberid" : "bookid") + " = " + input;
+
+    SQLHSTMT stmt;
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql.c_str(), SQL_NTS) == SQL_SUCCESS) {
+        cout << "\nID\tMemID\tBookID\tIssue\tDue\tReturn\tFine\n";
+        while (SQLFetch(stmt) == SQL_SUCCESS) {
+            int tx, mem, bk;
+            char issue[20], due[20], ret[20];
+            double fine;
+            SQLGetData(stmt, 1, SQL_C_SLONG, &tx, 0, NULL);
+            SQLGetData(stmt, 2, SQL_C_SLONG, &mem, 0, NULL);
+            SQLGetData(stmt, 3, SQL_C_SLONG, &bk, 0, NULL);
+            SQLGetData(stmt, 4, SQL_C_CHAR, issue, sizeof(issue), NULL);
+            SQLGetData(stmt, 5, SQL_C_CHAR, due, sizeof(due), NULL);
+            SQLGetData(stmt, 6, SQL_C_CHAR, ret, sizeof(ret), NULL);
+            SQLGetData(stmt, 7, SQL_C_DOUBLE, &fine, 0, NULL);
+
+            cout << tx << "\t" << mem << "\t" << bk << "\t" << issue << "\t" << due << "\t" << ret << "\t" << fine << "\n";
+        }
+    } else {
+        cout << "No records found.\n";
+    }
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+
 void bookMenu() {
     string choice;
     do {
