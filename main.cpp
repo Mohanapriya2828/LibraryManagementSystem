@@ -485,6 +485,161 @@ void transactionHistory() {
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
 
+void viewTopIssuedBooks() {
+    string sql = "SELECT TOP 10 bookid, COUNT(*) AS issue_count FROM transactions GROUP BY bookid ORDER BY issue_count DESC";
+
+    SQLHSTMT stmt;
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql.c_str(), SQL_NTS) == SQL_SUCCESS) {
+        cout << "Top 10 Issued Books:\nBookID\tIssueCount\n";
+        while (SQLFetch(stmt) == SQL_SUCCESS) {
+            int bookid;
+            int count;
+            SQLGetData(stmt, 1, SQL_C_SLONG, &bookid, 0, NULL);
+            SQLGetData(stmt, 2, SQL_C_SLONG, &count, 0, NULL);
+
+            cout << bookid << "\t" << count << "\n";
+        }
+    } else {
+        cout << "Failed to fetch top issued books.\n";
+    }
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+
+
+void viewMostActiveMembers() {
+    string sql = "SELECT TOP 10 memberid, COUNT(*) AS transaction_count FROM transactions GROUP BY memberid ORDER BY transaction_count DESC";
+
+    SQLHSTMT stmt;
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql.c_str(), SQL_NTS) == SQL_SUCCESS) {
+        cout << "Most Active Members:\nMemberID\tTransactionCount\n";
+        while (SQLFetch(stmt) == SQL_SUCCESS) {
+            int memberid;
+            int count;
+            SQLGetData(stmt, 1, SQL_C_SLONG, &memberid, 0, NULL);
+            SQLGetData(stmt, 2, SQL_C_SLONG, &count, 0, NULL);
+
+            cout << memberid << "\t" << count << "\n";
+        }
+    } else {
+        cout << "Failed to fetch active members.\n";
+    }
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+void fineCollectionSummary() {
+    string sql = "SELECT SUM(fineamount) AS total_fines, COUNT(*) AS total_transactions_with_fine FROM transactions WHERE fineamount > 0";
+
+    SQLHSTMT stmt;
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql.c_str(), SQL_NTS) == SQL_SUCCESS) {
+        if (SQLFetch(stmt) == SQL_SUCCESS) {
+            double totalFines = 0;
+            int totalTransactions = 0;
+            SQLGetData(stmt, 1, SQL_C_DOUBLE, &totalFines, 0, NULL);
+            SQLGetData(stmt, 2, SQL_C_SLONG, &totalTransactions, 0, NULL);
+
+            cout << "Fine Collection Summary:\n";
+            cout << "Total Fines Collected: $" << totalFines << "\n";
+            cout << "Number of Transactions with Fine: " << totalTransactions << "\n";
+        } else {
+            cout << "No fine data found.\n";
+        }
+    } else {
+        cout << "Failed to fetch fine collection summary.\n";
+    }
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+
+
+#include <fstream>
+
+void exportReportsToCSV() {
+    ofstream file("LibraryReports.csv");
+    if (!file.is_open()) {
+        cout << "Failed to open file for writing.\n";
+        return;
+    }
+
+    SQLHSTMT stmt;
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    file << "Top 10 Issued Books\n";
+    file << "BookID,Title,IssueCount\n";
+
+    string sql1 = "SELECT TOP 10 b.bookid, b.title, COUNT(t.bookid) AS issue_count "
+                  "FROM transactions t "
+                  "JOIN books b ON t.bookid = b.bookid "
+                  "GROUP BY b.bookid, b.title "
+                  "ORDER BY issue_count DESC";
+
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql1.c_str(), SQL_NTS) == SQL_SUCCESS) {
+        while (SQLFetch(stmt) == SQL_SUCCESS) {
+            int bookid, count;
+            char title[255];
+            SQLGetData(stmt, 1, SQL_C_SLONG, &bookid, 0, NULL);
+            SQLGetData(stmt, 2, SQL_C_CHAR, title, sizeof(title), NULL);
+            SQLGetData(stmt, 3, SQL_C_SLONG, &count, 0, NULL);
+            file << bookid << "," << title << "," << count << "\n";
+        }
+    } else {
+        file << "Failed to fetch top issued books.\n";
+    }
+
+    file << "\n";
+
+    file << "Most Active Members\n";
+    file << "MemberID,Name,TransactionCount\n";
+
+    SQLFreeStmt(stmt, SQL_CLOSE);
+    string sql2 = "SELECT TOP 10 m.memberid, m.name, COUNT(t.transactionid) AS txn_count "
+                  "FROM transactions t "
+                  "JOIN members m ON t.memberid = m.memberid "
+                  "GROUP BY m.memberid, m.name "
+                  "ORDER BY txn_count DESC";
+
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql2.c_str(), SQL_NTS) == SQL_SUCCESS) {
+        while (SQLFetch(stmt) == SQL_SUCCESS) {
+            int memberid, count;
+            char name[255];
+            SQLGetData(stmt, 1, SQL_C_SLONG, &memberid, 0, NULL);
+            SQLGetData(stmt, 2, SQL_C_CHAR, name, sizeof(name), NULL);
+            SQLGetData(stmt, 3, SQL_C_SLONG, &count, 0, NULL);
+            file << memberid << "," << name << "," << count << "\n";
+        }
+    } else {
+        file << "Failed to fetch active members.\n";
+    }
+
+    file << "\n";
+
+    file << "Fine Collection Summary\n";
+    file << "TotalFineAmount\n";
+
+    SQLFreeStmt(stmt, SQL_CLOSE);
+    string sql3 = "SELECT SUM(fineamount) FROM transactions WHERE fineamount IS NOT NULL";
+
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql3.c_str(), SQL_NTS) == SQL_SUCCESS) {
+        double totalFine = 0.0;
+        if (SQLFetch(stmt) == SQL_SUCCESS) {
+            SQLGetData(stmt, 1, SQL_C_DOUBLE, &totalFine, 0, NULL);
+            file << totalFine << "\n";
+        }
+    } else {
+        file << "Failed to fetch fine summary.\n";
+    }
+
+    file.close();
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+
+    cout << "Report exported to LibraryReports.csv\n";
+}
+
+
+
 void bookMenu() {
     string choice;
     do {
@@ -566,6 +721,28 @@ void transactionMenu() {
         }
     } while (true);
 }
+
+void reportsMenu() {
+    string choice;
+    do {
+        cout << "\n--- Reports Menu ---\n";
+        cout << "1. View Top 10 Issued Books\n";
+        cout << "2. View Most Active Members\n";
+        cout << "3. Fine Collection Summary\n";
+        cout << "4. Export Top 10 Issued Books to CSV\n";
+        cout << "0. Back\n> ";
+        getline(cin, choice);
+
+        if (choice == "1" && currentUserRole == "Admin") viewTopIssuedBooks();
+        else if (choice == "2" && currentUserRole == "Admin") viewMostActiveMembers();
+        else if (choice == "3" && currentUserRole == "Admin") fineCollectionSummary();
+        else if (choice == "4" && currentUserRole == "Admin") exportReportsToCSV();
+        else if (choice == "0") break;
+        else cout << "Invalid option.\n";
+    } while (true);
+}
+
+
 
 void mainMenu() {
     string choice;
