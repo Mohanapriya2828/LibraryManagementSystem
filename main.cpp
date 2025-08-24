@@ -308,6 +308,44 @@ void deleteMember() {
     cout << (execSQL(sql) ? "Member deactivated.\n" : "Failed to deactivate.\n");
 }
 
+void viewMembers() {
+    string sql = "SELECT memberid, name, email, status FROM members";
+    SQLHSTMT stmt;
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql.c_str(), SQL_NTS) == SQL_SUCCESS) {
+        cout << "\nID\tName\t\tEmail\t\tStatus\n";
+        while (SQLFetch(stmt) == SQL_SUCCESS) {
+            int id; char name[255], email[255], status[20];
+            SQLGetData(stmt, 1, SQL_C_SLONG, &id, 0, NULL);
+            SQLGetData(stmt, 2, SQL_C_CHAR, name, sizeof(name), NULL);
+            SQLGetData(stmt, 3, SQL_C_CHAR, email, sizeof(email), NULL);
+            SQLGetData(stmt, 4, SQL_C_CHAR, status, sizeof(status), NULL);
+            cout << id << "\t" << name << "\t" << email << "\t" << status << "\n";
+        }
+    }
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+
+void searchMembers() {
+    string keyword;
+    cout << "Enter name/email to search: ";
+    getline(cin, keyword);
+    string sql = "SELECT memberid, name, email FROM members WHERE name LIKE '%" + keyword + "%' OR email LIKE '%" + keyword + "%'";
+    SQLHSTMT stmt;
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+    if (SQLExecDirect(stmt, (SQLCHAR*)sql.c_str(), SQL_NTS) == SQL_SUCCESS) {
+        cout << "\nID\tName\t\tEmail\n";
+        while (SQLFetch(stmt) == SQL_SUCCESS) {
+            int id; char name[255], email[255];
+            SQLGetData(stmt, 1, SQL_C_SLONG, &id, 0, NULL);
+            SQLGetData(stmt, 2, SQL_C_CHAR, name, sizeof(name), NULL);
+            SQLGetData(stmt, 3, SQL_C_CHAR, email, sizeof(email), NULL);
+            cout << id << "\t" << name << "\t" << email << "\n";
+        }
+    }
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+
 void bookMenu() {
     string choice;
     do {
